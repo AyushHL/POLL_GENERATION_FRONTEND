@@ -1,7 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState,useEffect,useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   User,
   Bell,
@@ -17,11 +18,30 @@ import {
   Monitor,
   BookOpen,
   Target,
-} from "lucide-react"
-import GlassCard from "../GlassCard"
+  AlertTriangle
+} from "lucide-react";
+import GlassCard from "../GlassCard";
 
 
 const Settings: React.FC = () => {
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Handle avatar upload
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setProfileData((prev) => ({
+          ...prev,
+          avatar: event.target?.result as string,
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   // Profile Settings
   const [profileData, setProfileData] = useState({
     firstName: "John",
@@ -70,6 +90,7 @@ const Settings: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState("profile")
   const [isSaving, setIsSaving] = useState(false)
+  const [showSavedMessage, setShowSavedMessage] = useState(false)
 
   const tabs = [
     { id: "profile", label: "Profile", icon: User },
@@ -78,15 +99,91 @@ const Settings: React.FC = () => {
     { id: "appearance", label: "Appearance", icon: Palette },
     { id: "learning", label: "Learning", icon: BookOpen },
     { id: "security", label: "Security", icon: Lock },
+
   ]
 
+  useEffect(() => {
+  document.documentElement.style.fontSize =
+    appearanceSettings.fontSize === "small"
+      ? "14px"
+      : appearanceSettings.fontSize === "large"
+      ? "18px"
+      : "16px";
+}, [appearanceSettings.fontSize]);
+
+// Accessibility: Apply reduced motion and high contrast
+  useEffect(() => {
+    // Reduced Motion
+    if (appearanceSettings.reducedMotion) {
+      document.documentElement.style.setProperty("scroll-behavior", "auto");
+      document.body.classList.add("reduced-motion");
+    } else {
+      document.documentElement.style.setProperty("scroll-behavior", "");
+      document.body.classList.remove("reduced-motion");
+    }
+
+    // High Contrast
+    if (appearanceSettings.highContrast) {
+      document.body.classList.add("high-contrast");
+    } else {
+      document.body.classList.remove("high-contrast");
+    }
+  }, [appearanceSettings.reducedMotion, appearanceSettings.highContrast]);
+
+  const navigate = useNavigate();
+
+  // Two-Factor Authentication state (for demo)
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+
+  // Handler for Two-Factor Authentication
+  const handleTwoFactorToggle = () => {
+    setTwoFactorEnabled((prev) => !prev);
+    // Here you can add logic to open a modal or call an API
+  };
+
+  const handleChangePassword = () => {
+    // Navigate to a change password page or open a modal
+    navigate("/student/change-password");
+    // Or, if you want a modal, you can set a state like setShowChangePasswordModal(true)
+  };
+
   const handleSave = async () => {
-    setIsSaving(true)
+  setIsSaving(true);
+  // Save all settings to localStorage (or API)
+  localStorage.setItem("studentSettings", JSON.stringify({
+    profileData,
+    notificationSettings,
+    privacySettings,
+    appearanceSettings,
+    learningSettings,
+  }));
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+    setIsSaving(false);
+    setShowSavedMessage(true);
+    setTimeout(() => setShowSavedMessage(false), 2000); // Hide after 2 seconds
+  };
+
+  const handleActiveSessions = () => {
+    // Navigate to the active sessions page or open a modal
+    navigate("/student/active-sessions");
+    // Or, if you want a modal, you can set a state like setShowActiveSessionsModal(true)
+  };
+
+  // Modal state for delete account
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  // Handler for Delete Account
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    setDeleteError("");
     // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    setIsSaving(false)
-    // Show success message (you can implement toast notifications)
-  }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    setIsDeleting(false);
+    // For demo: redirect to goodbye page or login
+    navigate("/");
+  };
 
   const renderProfileSettings = () => (
     <div className="space-y-6">
@@ -103,11 +200,23 @@ const Settings: React.FC = () => {
               <img
                 src={profileData.avatar || "/placeholder.svg"}
                 alt="Profile"
-                className="w-20 h-20 rounded-full border-2 border-purple-500/30"
+                className="w-20 h-20 rounded-full border-2 border-purple-500/30 object-cover"
               />
-              <button className="absolute -bottom-1 -right-1 p-2 bg-purple-600 rounded-full hover:bg-purple-700 transition-colors">
+              <button
+                type="button"
+                className="absolute -bottom-1 -right-1 p-2 bg-purple-600 rounded-full hover:bg-purple-700 transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+                aria-label="Upload profile picture"
+              >
                 <Camera className="w-4 h-4 text-white" />
               </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarChange}
+              />
             </div>
             <div>
               <h4 className="text-white font-medium">Profile Picture</h4>
@@ -310,29 +419,6 @@ const Settings: React.FC = () => {
             </div>
           </div>
 
-          {/* Language */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Language</label>
-            <select
-              value={appearanceSettings.language}
-              onChange={(e) => setAppearanceSettings({ ...appearanceSettings, language: e.target.value })}
-              className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50"
-            >
-              <option value="en" className="bg-gray-800">
-                English
-              </option>
-              <option value="es" className="bg-gray-800">
-                Spanish
-              </option>
-              <option value="fr" className="bg-gray-800">
-                French
-              </option>
-              <option value="de" className="bg-gray-800">
-                German
-              </option>
-            </select>
-          </div>
-
           {/* Font Size */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Font Size</label>
@@ -450,7 +536,7 @@ const Settings: React.FC = () => {
     </div>
   )
 
-  const renderSecuritySettings = () => (
+   const renderSecuritySettings = () => (
     <div className="space-y-6">
       <GlassCard className="p-6">
         <div className="flex items-center gap-2 mb-6">
@@ -459,7 +545,10 @@ const Settings: React.FC = () => {
         </div>
 
         <div className="space-y-4">
-          <button className="w-full p-4 bg-white/5 rounded-lg text-left hover:bg-white/10 transition-colors">
+          <button
+            className="w-full p-4 bg-white/5 rounded-lg text-left hover:bg-white/10 transition-colors"
+            onClick={handleChangePassword}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-white font-medium">Change Password</h4>
@@ -469,17 +558,35 @@ const Settings: React.FC = () => {
             </div>
           </button>
 
-          <button className="w-full p-4 bg-white/5 rounded-lg text-left hover:bg-white/10 transition-colors">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-white font-medium">Two-Factor Authentication</h4>
-                <p className="text-gray-400 text-sm">Add an extra layer of security</p>
-              </div>
-              <Shield className="w-5 h-5 text-gray-400" />
+          {/* Two-Factor Authentication */}
+          <button
+            className={`w-full p-4 rounded-lg text-left transition-colors flex items-center justify-between ${
+              twoFactorEnabled
+                ? "bg-green-500/10 border border-green-500/20 hover:bg-green-500/20"
+                : "bg-white/5 hover:bg-white/10"
+            }`}
+            onClick={handleTwoFactorToggle}
+          >
+            <div>
+              <h4 className="text-white font-medium">Two-Factor Authentication</h4>
+              <p className="text-gray-400 text-sm">
+                {twoFactorEnabled
+                  ? "Two-factor authentication is enabled"
+                  : "Add an extra layer of security"}
+              </p>
             </div>
+            <Shield
+              className={`w-5 h-5 ${
+                twoFactorEnabled ? "text-green-400" : "text-gray-400"
+              }`}
+            />
           </button>
 
-          <button className="w-full p-4 bg-white/5 rounded-lg text-left hover:bg-white/10 transition-colors">
+          {/* Active Sessions */}
+          <button
+            className="w-full p-4 bg-white/5 rounded-lg text-left hover:bg-white/10 transition-colors"
+            onClick={handleActiveSessions}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-white font-medium">Active Sessions</h4>
@@ -489,7 +596,11 @@ const Settings: React.FC = () => {
             </div>
           </button>
 
-          <button className="w-full p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-left hover:bg-red-500/20 transition-colors">
+          {/* Delete Account */}
+          <button
+            className="w-full p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-left hover:bg-red-500/20 transition-colors"
+            onClick={() => setShowDeleteModal(true)}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-red-400 font-medium">Delete Account</h4>
@@ -500,8 +611,54 @@ const Settings: React.FC = () => {
           </button>
         </div>
       </GlassCard>
+
+      {/* Delete Account Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-red-500/30 rounded-2xl p-8 max-w-md w-full shadow-2xl space-y-6">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-7 h-7 text-red-400" />
+              <h3 className="text-xl font-bold text-white">Delete Account</h3>
+            </div>
+            <p className="text-gray-300">
+              Are you sure you want to <span className="text-red-400 font-semibold">permanently delete</span> your account? This action cannot be undone.
+            </p>
+            {deleteError && (
+              <div className="text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2 text-sm text-center">
+                {deleteError}
+              </div>
+            )}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="flex-1 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium transition"
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                className="flex-1 px-4 py-2 rounded-lg bg-gradient-to-r from-red-600 to-pink-600 text-white font-medium hover:from-red-700 hover:to-pink-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <>
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-5 h-5" />
+                    Delete Account
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  )
+  );
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -524,6 +681,17 @@ const Settings: React.FC = () => {
 
   return (
     <div className="p-8 space-y-8">
+
+      {/* Success Message Popup */}
+      {showSavedMessage && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50">
+          <div className="bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in-down">
+            <Save className="w-5 h-5" />
+            Changes successfully saved!
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="text-center space-y-4">
         <div className="flex items-center justify-center gap-3">
